@@ -33,6 +33,10 @@ macro_rules! crc_impl {
                 self
             }
 
+            const fn optional_reflection(&self) -> $t {
+                self.algorithm.optional_reflection(self.value)
+            }
+
             /// Finalize value.
             /// Change value to checksum.
             pub const fn finalize(&self) -> $t {
@@ -43,6 +47,15 @@ macro_rules! crc_impl {
             pub fn checksum(&mut self, bytes: &[u8]) -> $t {
                 self.initialize().calc_bytes(bytes).finalize()
             }
+
+            /// Check if bytes (message + CRC) are error-free.
+            pub fn is_error_free(&mut self, bytes: &[u8]) -> bool {
+                if self.initialize().calc_bytes(bytes).optional_reflection() == self.algorithm.residue {
+                    true
+                } else {
+                    false
+                }
+            }
         }
     )*)
 }
@@ -51,7 +64,108 @@ crc_impl!(u16, u32, u64, u128);
 
 #[cfg(test)]
 mod tests {
-    use super::{Algorithm, CRC};
+    use super::*;
+    use crate::CHECK_BYTES;
+
+    const CRC_32_AIXM: Algorithm<u32> = Algorithm {
+        poly: 0x814141ab,
+        init: 0x00000000,
+        refin: false,
+        refout: false,
+        xorout: 0x00000000,
+        check: 0x3010bf7f,
+        residue: 0x00000000,
+    };
+    const CRC_32_AUTOSAR: Algorithm<u32> = Algorithm {
+        poly: 0xf4acfb13,
+        init: 0xffffffff,
+        refin: true,
+        refout: true,
+        xorout: 0xffffffff,
+        check: 0x1697d06a,
+        residue: 0x904cddbf,
+    };
+    const CRC_32_BASE91_D: Algorithm<u32> = Algorithm {
+        poly: 0xa833982b,
+        init: 0xffffffff,
+        refin: true,
+        refout: true,
+        xorout: 0xffffffff,
+        check: 0x87315576,
+        residue: 0x45270551,
+    };
+    const CRC_32_BZIP2: Algorithm<u32> = Algorithm {
+        poly: 0x04c11db7,
+        init: 0xffffffff,
+        refin: false,
+        refout: false,
+        xorout: 0xffffffff,
+        check: 0xfc891918,
+        residue: 0xc704dd7b,
+    };
+    const CRC_32_CD_ROM_EDC: Algorithm<u32> = Algorithm {
+        poly: 0x8001801b,
+        init: 0x00000000,
+        refin: true,
+        refout: true,
+        xorout: 0x00000000,
+        check: 0x6ec2edc4,
+        residue: 0x00000000,
+    };
+    const CRC_32_CKSUM: Algorithm<u32> = Algorithm {
+        poly: 0x04c11db7,
+        init: 0x00000000,
+        refin: false,
+        refout: false,
+        xorout: 0xffffffff,
+        check: 0x765e7680,
+        residue: 0xc704dd7b,
+    };
+    const CRC_32_ISCSI: Algorithm<u32> = Algorithm {
+        poly: 0x1edc6f41,
+        init: 0xffffffff,
+        refin: true,
+        refout: true,
+        xorout: 0xffffffff,
+        check: 0xe3069283,
+        residue: 0xb798b438,
+    };
+    const CRC_32_ISO_HDLC: Algorithm<u32> = Algorithm {
+        poly: 0x04c11db7,
+        init: 0xffffffff,
+        refin: true,
+        refout: true,
+        xorout: 0xffffffff,
+        check: 0xcbf43926,
+        residue: 0xdebb20e3,
+    };
+    const CRC_32_JAMCRC: Algorithm<u32> = Algorithm {
+        poly: 0x04c11db7,
+        init: 0xffffffff,
+        refin: true,
+        refout: true,
+        xorout: 0x00000000,
+        check: 0x340bc6d9,
+        residue: 0x00000000,
+    };
+    const CRC_32_MPEG_2: Algorithm<u32> = Algorithm {
+        poly: 0x04c11db7,
+        init: 0xffffffff,
+        refin: false,
+        refout: false,
+        xorout: 0x00000000,
+        check: 0x0376e6e7,
+        residue: 0x00000000,
+    };
+    const CRC_32_XFER: Algorithm<u32> = Algorithm {
+        poly: 0x000000af,
+        init: 0x00000000,
+        refin: false,
+        refout: false,
+        xorout: 0x00000000,
+        check: 0xbd0be338,
+        residue: 0x00000000,
+    };
 
     #[test]
     fn check_refin_true_table() {
@@ -95,17 +209,7 @@ mod tests {
             1279665062, 1595330642, 2910671697,
         ];
 
-        let algo_iscsi = Algorithm::<u32> {
-            poly: 0x1edc6f41,
-            init: 0xffffffff,
-            refin: true,
-            refout: true,
-            xorout: 0xffffffff,
-            check: 0xe3069283,
-            residue: 0xb798b438,
-        };
-        let crc32c = CRC::<u32>::new(algo_iscsi);
-
+        let crc32c = CRC::<u32>::new(CRC_32_ISCSI);
         assert_eq!(crc32c_table, crc32c.table);
     }
 
@@ -151,49 +255,54 @@ mod tests {
             2985771188,
         ];
 
-        let algo_zip2 = Algorithm::<u32> {
-            poly: 0x04c11db7,
-            init: 0xffffffff,
-            refin: false,
-            refout: false,
-            xorout: 0xffffffff,
-            check: 0xfc891918,
-            residue: 0xc704dd7b,
-        };
-        let crc32 = CRC::<u32>::new(algo_zip2);
-
+        let crc32 = CRC::<u32>::new(CRC_32_BZIP2);
         assert_eq!(crc32_table, crc32.table);
     }
 
     #[test]
-    fn refin_true_check() {
-        let algo_iscsi = Algorithm::<u32> {
-            poly: 0x1edc6f41,
-            init: 0xffffffff,
-            refin: true,
-            refout: true,
-            xorout: 0xffffffff,
-            check: 0xe3069283,
-            residue: 0xb798b438,
-        };
-        let mut crc32c = CRC::<u32>::new(algo_iscsi);
-
-        assert_eq!(crc32c.checksum(b"123456789"), crc32c.algorithm.check);
+    fn check() {
+        let algos = [
+            CRC_32_AIXM,
+            CRC_32_AUTOSAR,
+            CRC_32_BASE91_D,
+            CRC_32_BZIP2,
+            CRC_32_CD_ROM_EDC,
+            CRC_32_CKSUM,
+            CRC_32_ISCSI,
+            CRC_32_ISO_HDLC,
+            CRC_32_JAMCRC,
+            CRC_32_MPEG_2,
+            CRC_32_XFER,
+        ];
+        for algo in algos {
+            let mut crc32 = CRC::<u32>::new(algo);
+            assert_eq!(crc32.checksum(CHECK_BYTES), crc32.algorithm.check);
+        }
     }
 
     #[test]
-    fn refin_false_check() {
-        let algo_zip2 = Algorithm::<u32> {
-            poly: 0x04c11db7,
-            init: 0xffffffff,
-            refin: false,
-            refout: false,
-            xorout: 0xffffffff,
-            check: 0xfc891918,
-            residue: 0xc704dd7b,
-        };
-        let mut crc32 = CRC::<u32>::new(algo_zip2);
+    fn residue() {
+        // True if little-endian.
+        let algos = [
+            (CRC_32_AUTOSAR, true),
+            (CRC_32_BASE91_D, true),
+            (CRC_32_BZIP2, false),
+            (CRC_32_CKSUM, false),
+            (CRC_32_ISCSI, true),
+            (CRC_32_ISO_HDLC, true),
+        ];
 
-        assert_eq!(crc32.checksum(b"123456789"), crc32.algorithm.check);
+        for algo in algos {
+            let mut crc32 = CRC::<u32>::new(algo.0);
+
+            let check = if algo.1 {
+                crc32.algorithm.check.to_le_bytes()
+            } else {
+                crc32.algorithm.check.to_be_bytes()
+            };
+
+            let bytes = [CHECK_BYTES, &check].concat();
+            assert!(crc32.is_error_free(&bytes));
+        }
     }
 }

@@ -1,5 +1,7 @@
 use core::mem;
 
+pub const CHECK_BYTES: &[u8] = b"123456789";
+
 /// CRC algorithm.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Algorithm<T> {
@@ -24,16 +26,18 @@ macro_rules! algorithm_impl {
                 }
             }
 
-            /// Finalize value.
-            /// Change value to checksum.
-            pub const fn finalize(&self, value: $t) -> $t {
-                let value = if self.refin ^ self.refout {
+            pub(crate) const fn optional_reflection(&self, value: $t) -> $t {
+                if self.refin ^ self.refout {
                     value.reverse_bits()
                 } else {
                     value
-                };
+                }
+            }
 
-                value ^ self.xorout
+            /// Finalize value.
+            /// Change value to checksum.
+            pub const fn finalize(&self, value: $t) -> $t {
+                self.optional_reflection(value) ^ self.xorout
             }
 
             /// Caluculate byte.

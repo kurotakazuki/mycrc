@@ -14,7 +14,7 @@ Create your own cyclic redundancy check (CRC).
 
 ### Example
 ```rust
-use mycrc::{Algorithm, CRC};
+use mycrc::{Algorithm, CHECK_BYTES, CRC};
 
 let algo_iscsi = Algorithm::<u32> {
     poly: 0x1edc6f41,
@@ -27,5 +27,5 @@ let algo_iscsi = Algorithm::<u32> {
 };
 let mut crc32c = CRC::<u32>::new(algo_iscsi);
 
-assert_eq!(crc32c.checksum(b"123456789"), crc32c.algorithm.check);
+assert_eq!(crc32c.checksum(CHECK_BYTES), crc32c.algorithm.check);
 ```
