@@ -1,6 +1,7 @@
 use core::mem;
 
-#[derive(Copy, Clone, Debug)]
+/// CRC algorithm.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Algorithm<T> {
     pub poly: T,
     pub init: T,
@@ -14,6 +15,7 @@ pub struct Algorithm<T> {
 macro_rules! algorithm_impl {
     ( $( $t:ty ),* ) => ($(
         impl Algorithm<$t> {
+            /// Initialize value.
             pub const fn initialize(&self) -> $t {
                 if self.refin {
                     self.init.reverse_bits()
@@ -22,6 +24,8 @@ macro_rules! algorithm_impl {
                 }
             }
 
+            /// Finalize value.
+            /// Change value to checksum.
             pub const fn finalize(&self, value: $t) -> $t {
                 let value = if self.refin ^ self.refout {
                     value.reverse_bits()
@@ -32,6 +36,7 @@ macro_rules! algorithm_impl {
                 value ^ self.xorout
             }
 
+            /// Caluculate byte.
             pub const fn calc_byte(reciprocal_poly: $t, refin: bool, byte: u8) -> $t {
                 let mut c = if refin {
                     byte as $t
@@ -57,6 +62,7 @@ macro_rules! algorithm_impl {
                 }
             }
 
+            /// Create table with reciprocal polynomial.
             pub const fn create_table_with_reciprocal_poly(&self) -> [$t; 256] {
                 let mut table = [0; 256];
                 let reciprocal_poly = self.poly.reverse_bits();
@@ -70,6 +76,7 @@ macro_rules! algorithm_impl {
                 table
             }
 
+            /// Caluculate bytes with values.
             pub const fn calc_bytes_with_values(&self, mut value: $t, bytes: &[u8], table: &[$t; 256]) -> $t {
                 let mut i = 0;
                 if self.refin {
@@ -89,5 +96,4 @@ macro_rules! algorithm_impl {
     )*)
 }
 
-// TODO impl u8
 algorithm_impl!(u16, u32, u64, u128);

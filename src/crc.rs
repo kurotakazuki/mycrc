@@ -1,5 +1,6 @@
 use crate::Algorithm;
 
+/// Cyclic redundancy check.
 pub struct CRC<T> {
     pub algorithm: Algorithm<T>,
     pub value: T,
@@ -9,6 +10,7 @@ pub struct CRC<T> {
 macro_rules! crc_impl {
     ( $( $t:ty ),* ) => ($(
         impl CRC<$t> {
+            /// The algorithm initializes the value and creates the table.
             pub const fn new(algorithm: Algorithm<$t>) -> Self {
                 let value = algorithm.initialize();
                 let table = algorithm.create_table_with_reciprocal_poly();
@@ -19,20 +21,25 @@ macro_rules! crc_impl {
                 }
             }
 
+            /// Initialize value.
             pub fn initialize(&mut self) -> &mut Self {
                 self.value = self.algorithm.initialize();
                 self
             }
 
+            /// Caluculate bytes.
             pub fn calc_bytes(&mut self, bytes: &[u8]) -> &mut Self {
                 self.value = self.algorithm.calc_bytes_with_values(self.value, bytes, &self.table);
                 self
             }
 
+            /// Finalize value.
+            /// Change value to checksum.
             pub const fn finalize(&self) -> $t {
                 self.algorithm.finalize(self.value)
             }
 
+            /// Checksum function.
             pub fn checksum(&mut self, bytes: &[u8]) -> $t {
                 self.initialize().calc_bytes(bytes).finalize()
             }
@@ -40,7 +47,6 @@ macro_rules! crc_impl {
     )*)
 }
 
-// TODO impl u8
 crc_impl!(u16, u32, u64, u128);
 
 #[cfg(test)]
