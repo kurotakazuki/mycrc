@@ -15,8 +15,8 @@ macro_rules! crc_impl {
             /// # Safety
             /// [`Algorithm`] information must be correct.
             pub const fn new(algorithm: Algorithm<$t>) -> Self {
-                let value = algorithm.initialize();
-                let table = algorithm.create_table_with_reciprocal_poly();
+                let value = Algorithm::<$t>::initialize(algorithm.init, algorithm.refin);
+                let table = Algorithm::<$t>::create_table(algorithm.poly, algorithm.refin);
                 Self {
                     algorithm,
                     value,
@@ -26,24 +26,24 @@ macro_rules! crc_impl {
 
             /// Initialize value.
             pub fn initialize(&mut self) -> &mut Self {
-                self.value = self.algorithm.initialize();
+                self.value = Algorithm::<$t>::initialize(self.algorithm.init, self.algorithm.refin);
                 self
             }
 
             /// Caluculate bytes.
             pub fn calc_bytes(&mut self, bytes: &[u8]) -> &mut Self {
-                self.value = self.algorithm.calc_bytes_with_values(self.value, bytes, &self.table);
+                self.value = Algorithm::<$t>::calc_bytes_with_values(self.algorithm.refin, self.value, bytes, &self.table);
                 self
             }
 
             const fn optional_reflection(&self) -> $t {
-                self.algorithm.optional_reflection(self.value)
+                Algorithm::<$t>::optional_reflection(self.algorithm.refin, self.algorithm.refout, self.value)
             }
 
             /// Finalize value.
             /// Change value to checksum.
             pub const fn finalize(&self) -> $t {
-                self.algorithm.finalize(self.value)
+                Algorithm::<$t>::finalize(self.algorithm.refin, self.algorithm.refout, self.algorithm.xorout, self.value)
             }
 
             /// Checksum function.

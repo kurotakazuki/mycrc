@@ -15,16 +15,16 @@ macro_rules! algorithm_impl {
     ( $( $t:ty ),* ) => ($(
         impl Algorithm<$t> {
             /// Initialize value.
-            pub const fn initialize(&self) -> $t {
-                if self.refin {
-                    self.init.reverse_bits()
+            pub const fn initialize(init: $t, refin: bool) -> $t {
+                if refin {
+                    init.reverse_bits()
                 } else {
-                    self.init
+                    init
                 }
             }
 
-            pub(crate) const fn optional_reflection(&self, value: $t) -> $t {
-                if self.refin ^ self.refout {
+            pub(crate) const fn optional_reflection(refin: bool, refout: bool, value: $t) -> $t {
+                if refin ^ refout {
                     value.reverse_bits()
                 } else {
                     value
@@ -33,13 +33,13 @@ macro_rules! algorithm_impl {
 
             /// Finalize value.
             /// Change value to checksum.
-            pub const fn finalize(&self, value: $t) -> $t {
-                self.optional_reflection(value) ^ self.xorout
+            pub const fn finalize(refin: bool, refout: bool, xorout: $t, value: $t) -> $t {
+                Self::optional_reflection(refin, refout, value) ^ xorout
             }
 
-            /// Caluculate byte.
-            pub const fn calc_byte(reciprocal_poly: $t, refin: bool, byte: u8) -> $t {
-                let mut c = if refin {
+            /// Caluculate byte with reciprocal polynomial.
+            pub const fn calc_byte_with_reciprocal_poly(reciprocal_poly: $t, refin: bool, byte: u8) -> $t {
+                let mut value = if refin {
                     byte as $t
                 } else {
                     byte.reverse_bits() as $t
@@ -47,30 +47,30 @@ macro_rules! algorithm_impl {
 
                 let mut i = 0;
                 while i < 8 {
-                    if c & 1 == 0 {
-                        c >>= 1;
+                    if value & 1 == 0 {
+                        value >>= 1;
                     } else {
-                        c >>= 1;
-                        c ^= reciprocal_poly;
+                        value >>= 1;
+                        value ^= reciprocal_poly;
                     }
                     i += 1;
                 }
 
                 if refin {
-                    c
+                    value
                 } else {
-                    c.reverse_bits()
+                    value.reverse_bits()
                 }
             }
 
-            /// Create table with reciprocal polynomial.
-            pub const fn create_table_with_reciprocal_poly(&self) -> [$t; 256] {
+            /// Create table.
+            pub const fn create_table(poly: $t, refin: bool) -> [$t; 256] {
                 let mut table = [0; 256];
-                let reciprocal_poly = self.poly.reverse_bits();
+                let reciprocal_poly = poly.reverse_bits();
 
                 let mut i = 0;
                 while i < table.len() {
-                    table[i] = Self::calc_byte(reciprocal_poly, self.refin, i as u8);
+                    table[i] = Self::calc_byte_with_reciprocal_poly(reciprocal_poly, refin, i as u8);
                     i += 1;
                 }
 
@@ -78,9 +78,9 @@ macro_rules! algorithm_impl {
             }
 
             /// Caluculate bytes with values.
-            pub const fn calc_bytes_with_values(&self, mut value: $t, bytes: &[u8], table: &[$t; 256]) -> $t {
+            pub const fn calc_bytes_with_values(refin: bool, mut value: $t, bytes: &[u8], table: &[$t; 256]) -> $t {
                 let mut i = 0;
-                if self.refin {
+                if refin {
                     while i < bytes.len() {
                         value = table[(value as usize ^ bytes[i] as usize) & 0xFF] ^ (value >> 8);
                         i += 1;
