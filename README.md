@@ -9,7 +9,7 @@ Create your own cyclic redundancy check (CRC).
 1. Create your own CRC using [`CRC::new`].
 2. Create checksum from message.
     - [`CRC::checksum`]
-    - [`CRC::initialize`] -> -> [`CRC::calc_bytes`] -> ... -> [`CRC::calc_bytes`] -> [`CRC::finalize`]
+    - [`CRC::initialize`] -> [`CRC::calc_bytes`] -> ... -> [`CRC::calc_bytes`] -> [`CRC::finalize`]
 3. Use [`CRC::is_error_free`] to check if bytes [message + checksum] are error-free.
 
 ### Example
