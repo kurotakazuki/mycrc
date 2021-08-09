@@ -11,6 +11,9 @@ macro_rules! crc_impl {
     ( $( $t:ty ),* ) => ($(
         impl CRC<$t> {
             /// The algorithm initializes the value and creates the table.
+            ///
+            /// # Safety
+            /// [`Algorithm`] information must be correct.
             pub const fn new(algorithm: Algorithm<$t>) -> Self {
                 let value = algorithm.initialize();
                 let table = algorithm.create_table_with_reciprocal_poly();
@@ -48,7 +51,7 @@ macro_rules! crc_impl {
                 self.initialize().calc_bytes(bytes).finalize()
             }
 
-            /// Check if bytes (message + CRC) are error-free.
+            /// Check if bytes (message + checksum) are error-free.
             pub fn is_error_free(&mut self, bytes: &[u8]) -> bool {
                 if self.initialize().calc_bytes(bytes).optional_reflection() == self.algorithm.residue {
                     true
@@ -65,7 +68,8 @@ crc_impl!(u16, u32, u64, u128);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::CHECK_BYTES;
+
+    const CHECK_BYTES: &[u8] = b"123456789";
 
     const CRC_32_AIXM: Algorithm<u32> = Algorithm {
         poly: 0x814141ab,
@@ -73,7 +77,6 @@ mod tests {
         refin: false,
         refout: false,
         xorout: 0x00000000,
-        check: 0x3010bf7f,
         residue: 0x00000000,
     };
     const CRC_32_AUTOSAR: Algorithm<u32> = Algorithm {
@@ -82,7 +85,6 @@ mod tests {
         refin: true,
         refout: true,
         xorout: 0xffffffff,
-        check: 0x1697d06a,
         residue: 0x904cddbf,
     };
     const CRC_32_BASE91_D: Algorithm<u32> = Algorithm {
@@ -91,7 +93,6 @@ mod tests {
         refin: true,
         refout: true,
         xorout: 0xffffffff,
-        check: 0x87315576,
         residue: 0x45270551,
     };
     const CRC_32_BZIP2: Algorithm<u32> = Algorithm {
@@ -100,7 +101,6 @@ mod tests {
         refin: false,
         refout: false,
         xorout: 0xffffffff,
-        check: 0xfc891918,
         residue: 0xc704dd7b,
     };
     const CRC_32_CD_ROM_EDC: Algorithm<u32> = Algorithm {
@@ -109,7 +109,6 @@ mod tests {
         refin: true,
         refout: true,
         xorout: 0x00000000,
-        check: 0x6ec2edc4,
         residue: 0x00000000,
     };
     const CRC_32_CKSUM: Algorithm<u32> = Algorithm {
@@ -118,7 +117,6 @@ mod tests {
         refin: false,
         refout: false,
         xorout: 0xffffffff,
-        check: 0x765e7680,
         residue: 0xc704dd7b,
     };
     const CRC_32_ISCSI: Algorithm<u32> = Algorithm {
@@ -127,7 +125,6 @@ mod tests {
         refin: true,
         refout: true,
         xorout: 0xffffffff,
-        check: 0xe3069283,
         residue: 0xb798b438,
     };
     const CRC_32_ISO_HDLC: Algorithm<u32> = Algorithm {
@@ -136,7 +133,6 @@ mod tests {
         refin: true,
         refout: true,
         xorout: 0xffffffff,
-        check: 0xcbf43926,
         residue: 0xdebb20e3,
     };
     const CRC_32_JAMCRC: Algorithm<u32> = Algorithm {
@@ -145,7 +141,6 @@ mod tests {
         refin: true,
         refout: true,
         xorout: 0x00000000,
-        check: 0x340bc6d9,
         residue: 0x00000000,
     };
     const CRC_32_MPEG_2: Algorithm<u32> = Algorithm {
@@ -154,7 +149,6 @@ mod tests {
         refin: false,
         refout: false,
         xorout: 0x00000000,
-        check: 0x0376e6e7,
         residue: 0x00000000,
     };
     const CRC_32_XFER: Algorithm<u32> = Algorithm {
@@ -163,7 +157,6 @@ mod tests {
         refin: false,
         refout: false,
         xorout: 0x00000000,
-        check: 0xbd0be338,
         residue: 0x00000000,
     };
 
@@ -262,21 +255,21 @@ mod tests {
     #[test]
     fn check() {
         let algos = [
-            CRC_32_AIXM,
-            CRC_32_AUTOSAR,
-            CRC_32_BASE91_D,
-            CRC_32_BZIP2,
-            CRC_32_CD_ROM_EDC,
-            CRC_32_CKSUM,
-            CRC_32_ISCSI,
-            CRC_32_ISO_HDLC,
-            CRC_32_JAMCRC,
-            CRC_32_MPEG_2,
-            CRC_32_XFER,
+            (CRC_32_AIXM, 0x3010bf7f),
+            (CRC_32_AUTOSAR, 0x1697d06a),
+            (CRC_32_BASE91_D, 0x87315576),
+            (CRC_32_BZIP2, 0xfc891918),
+            (CRC_32_CD_ROM_EDC, 0x6ec2edc4),
+            (CRC_32_CKSUM, 0x765e7680),
+            (CRC_32_ISCSI, 0xe3069283),
+            (CRC_32_ISO_HDLC, 0xcbf43926),
+            (CRC_32_JAMCRC, 0x340bc6d9),
+            (CRC_32_MPEG_2, 0x0376e6e7),
+            (CRC_32_XFER, 0xbd0be338),
         ];
         for algo in algos {
-            let mut crc32 = CRC::<u32>::new(algo);
-            assert_eq!(crc32.checksum(CHECK_BYTES), crc32.algorithm.check);
+            let mut crc32 = CRC::<u32>::new(algo.0);
+            assert_eq!(crc32.checksum(CHECK_BYTES), algo.1);
         }
     }
 
@@ -284,24 +277,35 @@ mod tests {
     fn residue() {
         // True if little-endian.
         let algos = [
-            (CRC_32_AUTOSAR, true),
-            (CRC_32_BASE91_D, true),
-            (CRC_32_BZIP2, false),
-            (CRC_32_CKSUM, false),
-            (CRC_32_ISCSI, true),
-            (CRC_32_ISO_HDLC, true),
+            (CRC_32_AUTOSAR, true, 0x1697d06a_u32),
+            (CRC_32_BASE91_D, true, 0x87315576),
+            (CRC_32_BZIP2, false, 0xfc891918),
+            (CRC_32_CKSUM, false, 0x765e7680),
+            (CRC_32_ISCSI, true, 0xe3069283),
+            (CRC_32_ISO_HDLC, true, 0xcbf43926),
         ];
 
         for algo in algos {
             let mut crc32 = CRC::<u32>::new(algo.0);
 
+            // message b"123456789"
             let check = if algo.1 {
-                crc32.algorithm.check.to_le_bytes()
+                algo.2.to_le_bytes()
             } else {
-                crc32.algorithm.check.to_be_bytes()
+                algo.2.to_be_bytes()
             };
 
             let bytes = [CHECK_BYTES, &check].concat();
+            assert!(crc32.is_error_free(&bytes));
+
+            // message [0]
+            let check = if algo.1 {
+                crc32.checksum(&[0]).to_le_bytes()
+            } else {
+                crc32.checksum(&[0]).to_be_bytes()
+            };
+
+            let bytes = [&[0_u8][..], &check].concat();
             assert!(crc32.is_error_free(&bytes));
         }
     }

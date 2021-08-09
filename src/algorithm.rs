@@ -1,7 +1,5 @@
 use core::mem;
 
-pub const CHECK_BYTES: &[u8] = b"123456789";
-
 /// CRC algorithm.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Algorithm<T> {
@@ -10,7 +8,6 @@ pub struct Algorithm<T> {
     pub refin: bool,
     pub refout: bool,
     pub xorout: T,
-    pub check: T,
     pub residue: T,
 }
 
