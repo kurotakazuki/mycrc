@@ -3,6 +3,7 @@ use core::mem;
 /// CRC algorithm.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Algorithm<T> {
+    pub endian: Endian,
     pub poly: T,
     pub init: T,
     pub refin: bool,
@@ -11,9 +12,61 @@ pub struct Algorithm<T> {
     pub residue: T,
 }
 
+/// Endianness
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Endian {
+    /// big-endian (BE)
+    Big,
+    /// little-endian (LE)
+    Little,
+    /// native byte order
+    Native,
+}
+
 macro_rules! algorithm_impl {
     ( $( $t:ty ),* ) => ($(
         impl Algorithm<$t> {
+            pub const fn new(
+                endian: Endian,
+                poly: $t,
+                init: $t,
+                refin: bool,
+                refout: bool,
+                xorout: $t,
+            ) -> (Self, $t, [$t; 256]) {
+                let init_value = Self::initialize(init, refin);
+                // 0 bytes checksum
+                let zero_bytes_checksum = Self::finalize_to_endian_bytes(Endian::Little, refin, refout, xorout, init_value);
+                // Create table
+                let table = Self::create_table(poly, refin);
+                // Caluculate residue.
+                let calc_value = Self::calc_bytes_with_values(refin, init_value, &zero_bytes_checksum, &table);
+                let residue = Self::optional_reflection(refin, refout, calc_value);
+
+                (
+                    Self {
+                        endian,
+                        poly,
+                        init,
+                        refin,
+                        refout,
+                        xorout,
+                        residue,
+                    },
+                    init_value,
+                    table,
+                )
+            }
+
+            // To endian bytes.
+            pub const fn to_endian_bytes(n: $t, endian: Endian) -> [u8; mem::size_of::<$t>()] {
+                match endian {
+                    Endian::Big => n.to_be_bytes(),
+                    Endian::Little => n.to_le_bytes(),
+                    Endian::Native => n.to_ne_bytes(),
+                }
+            }
+
             /// Initialize value.
             pub const fn initialize(init: $t, refin: bool) -> $t {
                 if refin {
@@ -23,7 +76,8 @@ macro_rules! algorithm_impl {
                 }
             }
 
-            pub(crate) const fn optional_reflection(refin: bool, refout: bool, value: $t) -> $t {
+            /// Optional reflection.
+            pub const fn optional_reflection(refin: bool, refout: bool, value: $t) -> $t {
                 if refin ^ refout {
                     value.reverse_bits()
                 } else {
@@ -35,6 +89,12 @@ macro_rules! algorithm_impl {
             /// Change value to checksum.
             pub const fn finalize(refin: bool, refout: bool, xorout: $t, value: $t) -> $t {
                 Self::optional_reflection(refin, refout, value) ^ xorout
+            }
+
+            /// Finalize to endian bytes.
+            pub const fn finalize_to_endian_bytes(endian: Endian, refin: bool, refout: bool, xorout: $t, value: $t) -> [u8; mem::size_of::<$t>()] {
+                let finalize = Self::finalize(refin, refout, xorout, value);
+                Self::to_endian_bytes(finalize, endian)
             }
 
             /// Caluculate byte with reciprocal polynomial.

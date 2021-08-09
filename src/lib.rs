@@ -1,7 +1,7 @@
-#![no_std]
 #![doc = include_str!("../README.md")]
+#![no_std]
 
-pub use self::algorithm::Algorithm;
+pub use self::algorithm::{Algorithm, Endian};
 pub use self::crc::CRC;
 
 /// CRC algorithm

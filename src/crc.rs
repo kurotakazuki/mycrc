@@ -1,4 +1,5 @@
-use crate::Algorithm;
+use crate::{Algorithm, Endian};
+use core::mem;
 
 /// Cyclic redundancy check.
 pub struct CRC<T> {
@@ -10,17 +11,42 @@ pub struct CRC<T> {
 macro_rules! crc_impl {
     ( $( $t:ty ),* ) => ($(
         impl CRC<$t> {
+            /// Create your own CRC.
+            pub const fn new(
+                endian: Endian,
+                poly: $t,
+                init: $t,
+                refin: bool,
+                refout: bool,
+                xorout: $t,
+            ) -> Self {
+                let (algorithm, value, table) = Algorithm::<$t>::new(
+                    endian,
+                    poly,
+                    init,
+                    refin,
+                    refout,
+                    xorout,
+                );
+
+                Self {
+                    algorithm,
+                    value,
+                    table,
+                }
+            }
+
             /// The algorithm initializes the value and creates the table.
             ///
             /// # Safety
             /// [`Algorithm`] information must be correct.
-            pub const fn new(algorithm: Algorithm<$t>) -> Self {
+            pub const fn from_algorithm(algorithm: Algorithm<$t>) -> Self {
                 let value = Algorithm::<$t>::initialize(algorithm.init, algorithm.refin);
                 let table = Algorithm::<$t>::create_table(algorithm.poly, algorithm.refin);
                 Self {
                     algorithm,
                     value,
-                    table
+                    table,
                 }
             }
 
@@ -36,7 +62,8 @@ macro_rules! crc_impl {
                 self
             }
 
-            const fn optional_reflection(&self) -> $t {
+            /// Optional reflection.
+            pub const fn optional_reflection(&self) -> $t {
                 Algorithm::<$t>::optional_reflection(self.algorithm.refin, self.algorithm.refout, self.value)
             }
 
@@ -46,12 +73,23 @@ macro_rules! crc_impl {
                 Algorithm::<$t>::finalize(self.algorithm.refin, self.algorithm.refout, self.algorithm.xorout, self.value)
             }
 
+            /// Finalize to endian bytes.
+            pub const fn finalize_to_endian_bytes(&self) -> [u8; mem::size_of::<$t>()] {
+                Algorithm::<$t>::finalize_to_endian_bytes(self.algorithm.endian, self.algorithm.refin, self.algorithm.refout, self.algorithm.xorout, self.value)
+            }
+
             /// Checksum function.
             pub fn checksum(&mut self, bytes: &[u8]) -> $t {
                 self.initialize().calc_bytes(bytes).finalize()
             }
 
-            /// Check if bytes (message + checksum) are error-free.
+            /// Checksum to endian bytes.
+            pub fn checksum_to_endian_bytes(&mut self, bytes: &[u8]) -> [u8; mem::size_of::<$t>()] {
+                self.initialize().calc_bytes(bytes).finalize_to_endian_bytes()
+            }
+
+            /// Check if bytes [message + checksum] are error-free.
+            /// Returns `true` if error-free.
             pub fn is_error_free(&mut self, bytes: &[u8]) -> bool {
                 if self.initialize().calc_bytes(bytes).optional_reflection() == self.algorithm.residue {
                     true
@@ -72,6 +110,7 @@ mod tests {
     const CHECK_BYTES: &[u8] = b"123456789";
 
     const CRC_32_AIXM: Algorithm<u32> = Algorithm {
+        endian: Endian::Native,
         poly: 0x814141ab,
         init: 0x00000000,
         refin: false,
@@ -80,6 +119,7 @@ mod tests {
         residue: 0x00000000,
     };
     const CRC_32_AUTOSAR: Algorithm<u32> = Algorithm {
+        endian: Endian::Little,
         poly: 0xf4acfb13,
         init: 0xffffffff,
         refin: true,
@@ -88,6 +128,7 @@ mod tests {
         residue: 0x904cddbf,
     };
     const CRC_32_BASE91_D: Algorithm<u32> = Algorithm {
+        endian: Endian::Little,
         poly: 0xa833982b,
         init: 0xffffffff,
         refin: true,
@@ -96,6 +137,7 @@ mod tests {
         residue: 0x45270551,
     };
     const CRC_32_BZIP2: Algorithm<u32> = Algorithm {
+        endian: Endian::Big,
         poly: 0x04c11db7,
         init: 0xffffffff,
         refin: false,
@@ -104,6 +146,7 @@ mod tests {
         residue: 0xc704dd7b,
     };
     const CRC_32_CD_ROM_EDC: Algorithm<u32> = Algorithm {
+        endian: Endian::Native,
         poly: 0x8001801b,
         init: 0x00000000,
         refin: true,
@@ -112,6 +155,7 @@ mod tests {
         residue: 0x00000000,
     };
     const CRC_32_CKSUM: Algorithm<u32> = Algorithm {
+        endian: Endian::Big,
         poly: 0x04c11db7,
         init: 0x00000000,
         refin: false,
@@ -120,6 +164,7 @@ mod tests {
         residue: 0xc704dd7b,
     };
     const CRC_32_ISCSI: Algorithm<u32> = Algorithm {
+        endian: Endian::Little,
         poly: 0x1edc6f41,
         init: 0xffffffff,
         refin: true,
@@ -128,6 +173,7 @@ mod tests {
         residue: 0xb798b438,
     };
     const CRC_32_ISO_HDLC: Algorithm<u32> = Algorithm {
+        endian: Endian::Little,
         poly: 0x04c11db7,
         init: 0xffffffff,
         refin: true,
@@ -136,6 +182,7 @@ mod tests {
         residue: 0xdebb20e3,
     };
     const CRC_32_JAMCRC: Algorithm<u32> = Algorithm {
+        endian: Endian::Native,
         poly: 0x04c11db7,
         init: 0xffffffff,
         refin: true,
@@ -144,6 +191,7 @@ mod tests {
         residue: 0x00000000,
     };
     const CRC_32_MPEG_2: Algorithm<u32> = Algorithm {
+        endian: Endian::Native,
         poly: 0x04c11db7,
         init: 0xffffffff,
         refin: false,
@@ -152,6 +200,7 @@ mod tests {
         residue: 0x00000000,
     };
     const CRC_32_XFER: Algorithm<u32> = Algorithm {
+        endian: Endian::Native,
         poly: 0x000000af,
         init: 0x00000000,
         refin: false,
@@ -202,7 +251,7 @@ mod tests {
             1279665062, 1595330642, 2910671697,
         ];
 
-        let crc32c = CRC::<u32>::new(CRC_32_ISCSI);
+        let crc32c = CRC::<u32>::from_algorithm(CRC_32_ISCSI);
         assert_eq!(crc32c_table, crc32c.table);
     }
 
@@ -248,12 +297,13 @@ mod tests {
             2985771188,
         ];
 
-        let crc32 = CRC::<u32>::new(CRC_32_BZIP2);
+        let crc32 = CRC::<u32>::from_algorithm(CRC_32_BZIP2);
         assert_eq!(crc32_table, crc32.table);
     }
 
     #[test]
     fn check() {
+        // (Algorithm, check)
         let algos = [
             (CRC_32_AIXM, 0x3010bf7f),
             (CRC_32_AUTOSAR, 0x1697d06a),
@@ -268,7 +318,7 @@ mod tests {
             (CRC_32_XFER, 0xbd0be338),
         ];
         for algo in algos {
-            let mut crc32 = CRC::<u32>::new(algo.0);
+            let mut crc32 = CRC::<u32>::from_algorithm(algo.0);
             assert_eq!(crc32.checksum(CHECK_BYTES), algo.1);
         }
     }
@@ -277,36 +327,38 @@ mod tests {
     fn residue() {
         // True if little-endian.
         let algos = [
-            (CRC_32_AUTOSAR, true, 0x1697d06a_u32),
-            (CRC_32_BASE91_D, true, 0x87315576),
-            (CRC_32_BZIP2, false, 0xfc891918),
-            (CRC_32_CKSUM, false, 0x765e7680),
-            (CRC_32_ISCSI, true, 0xe3069283),
-            (CRC_32_ISO_HDLC, true, 0xcbf43926),
+            (CRC_32_AUTOSAR, 0x1697d06a_u32),
+            (CRC_32_BASE91_D, 0x87315576),
+            (CRC_32_BZIP2, 0xfc891918),
+            (CRC_32_CKSUM, 0x765e7680),
+            (CRC_32_ISCSI, 0xe3069283),
+            (CRC_32_ISO_HDLC, 0xcbf43926),
         ];
 
         for algo in algos {
-            let mut crc32 = CRC::<u32>::new(algo.0);
+            let mut crc32 = CRC::<u32>::from_algorithm(algo.0);
 
             // message b"123456789"
-            let check = if algo.1 {
-                algo.2.to_le_bytes()
-            } else {
-                algo.2.to_be_bytes()
-            };
+            let check = Algorithm::<u32>::to_endian_bytes(algo.1, algo.0.endian);
 
             let bytes = [CHECK_BYTES, &check].concat();
             assert!(crc32.is_error_free(&bytes));
 
-            // message [0]
-            let check = if algo.1 {
-                crc32.checksum(&[0]).to_le_bytes()
-            } else {
-                crc32.checksum(&[0]).to_be_bytes()
-            };
+            // message []
+            let checksum = crc32.checksum_to_endian_bytes(&[]);
+            assert!(crc32.is_error_free(&checksum));
 
-            let bytes = [&[0_u8][..], &check].concat();
-            assert!(crc32.is_error_free(&bytes));
+            // Check if `CRC::from_algorithm` algo is equal to `CRC::new` algo.
+            let algo = crc32.algorithm;
+            let crc_new = CRC::<u32>::new(
+                algo.endian,
+                algo.poly,
+                algo.init,
+                algo.refin,
+                algo.refout,
+                algo.xorout,
+            );
+            assert_eq!(algo, crc_new.algorithm);
         }
     }
 }
