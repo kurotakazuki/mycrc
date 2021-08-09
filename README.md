@@ -31,7 +31,7 @@ let mut crc32c = CRC::<u32>::new(
 
 // Checksum
 assert_eq!(crc32c.checksum(CHECK_BYTES), 0xe3069283);
-// Is error free?
+// Is error-free?
 let checksum = crc32c.checksum_to_endian_bytes(CHECK_BYTES);
 let bytes = [CHECK_BYTES, &checksum].concat();
 assert!(crc32c.is_error_free(&bytes));
