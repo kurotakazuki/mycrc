@@ -88,14 +88,20 @@ macro_rules! crc_impl {
                 self.initialize().calc_bytes(bytes).finalize_to_endian_bytes()
             }
 
-            /// Check if bytes [message + checksum] are error-free.
+            /// Check if `value` is error-free.
             /// Returns `true` if error-free.
-            pub fn is_error_free(&mut self, bytes: &[u8]) -> bool {
-                if self.initialize().calc_bytes(bytes).optional_reflection() == self.algorithm.residue {
+            pub fn is_error_free(&mut self) -> bool {
+                if self.optional_reflection() == self.algorithm.residue {
                     true
                 } else {
                     false
                 }
+            }
+
+            /// Check if bytes [message + checksum] are error-free.
+            /// Returns `true` if error-free.
+            pub fn is_error_free_bytes(&mut self, bytes: &[u8]) -> bool {
+                self.initialize().calc_bytes(bytes).is_error_free()
             }
         }
     )*)
@@ -341,12 +347,13 @@ mod tests {
             // message b"123456789"
             let check = Algorithm::<u32>::to_endian_bytes(algo.1, algo.0.endian);
 
-            let bytes = [CHECK_BYTES, &check].concat();
-            assert!(crc32.is_error_free(&bytes));
+            crc32.calc_bytes(CHECK_BYTES);
+            crc32.calc_bytes(&check);
+            assert!(crc32.is_error_free());
 
             // message []
             let checksum = crc32.checksum_to_endian_bytes(&[]);
-            assert!(crc32.is_error_free(&checksum));
+            assert!(crc32.is_error_free_bytes(&checksum));
 
             // Check if `CRC::from_algorithm` algo is equal to `CRC::new` algo.
             let algo = crc32.algorithm;

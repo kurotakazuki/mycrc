@@ -10,7 +10,7 @@ Create your own cyclic redundancy check (CRC).
 2. Create checksum from message.
     - [`CRC::checksum`]
     - [`CRC::initialize`] -> [`CRC::calc_bytes`] -> ... -> [`CRC::calc_bytes`] -> [`CRC::finalize`]
-3. Use [`CRC::is_error_free`] to check if bytes [message + checksum] are error-free.
+3. Use [`CRC::is_error_free_bytes`] to check if bytes [message + checksum] are error-free.
 
 ### Example
 ```rust
@@ -34,5 +34,5 @@ assert_eq!(crc32c.checksum(CHECK_BYTES), 0xe3069283);
 // Is error-free?
 let checksum = crc32c.checksum_to_endian_bytes(CHECK_BYTES);
 let bytes = [CHECK_BYTES, &checksum].concat();
-assert!(crc32c.is_error_free(&bytes));
+assert!(crc32c.is_error_free_bytes(&bytes));
 ```
