@@ -14,7 +14,7 @@ Create your own cyclic redundancy check (CRC).
 
 ### Example
 ```rust
-use mycrc::{Algorithm, CRC, Endian};
+use mycrc::{CRC, Endian};
 
 // message
 const CHECK_BYTES: &[u8] = b"123456789";
