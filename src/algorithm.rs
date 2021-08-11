@@ -1,7 +1,7 @@
 use core::mem;
 
 /// CRC algorithm.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Algorithm<T> {
     pub endian: Endian,
     pub poly: T,
@@ -13,7 +13,7 @@ pub struct Algorithm<T> {
 }
 
 /// Endianness
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Endian {
     /// big-endian (BE)
     Big,

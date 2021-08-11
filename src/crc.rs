@@ -2,6 +2,7 @@ use crate::{Algorithm, Endian};
 use core::mem;
 
 /// Cyclic redundancy check.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct CRC<T> {
     pub algorithm: Algorithm<T>,
     pub value: T,
